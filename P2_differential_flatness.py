@@ -37,6 +37,18 @@ def compute_traj_coeffs(initial_state: State, final_state: State, tf: float) -> 
     """
     ########## Code starts here ##########
 
+    x = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [1, tf, np.power(tf, 2), np.power(tf, 3)], [0, 1, 2*tf, 3*np.power(tf, 2)]])
+    y = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [1, tf, np.power(tf, 2), np.power(tf, 3)], [0, 1, 2*tf, 3*np.power(tf, 2)]])
+    xvi = initial_state.V * np.cos(initial_state.th)
+    xvf = final_state.V * np.cos(final_state.th)
+    xst = np.array([[initial_state.x], [xvi], [final_state.x], [xvf]])
+    yvi = initial_state.V * np.sin(initial_state.th)
+    yvf = final_state.V * np.sin(final_state.th)
+    yst = np.array([[initial_state.y], [yvi], [final_state.y], [yvf]])
+    xs = np.linalg.solve(x, xst)
+    ys = np.linalg.solve(y, yst)
+    coeffs = np.vstack((xs, ys))
+
     ########## Code ends here ##########
     return coeffs
 
@@ -54,6 +66,24 @@ def compute_traj(coeffs: np.ndarray, tf: float, N: int) -> T.Tuple[np.ndarray, n
     t = np.linspace(0, tf, N) # generate evenly spaced points from 0 to tf
     traj = np.zeros((N, 7))
     ########## Code starts here ##########
+    count = 0
+    for i in t:
+        x = coeffs[0] + coeffs[1] * i + coeffs[2] * i ** 2 + coeffs[3] * i ** 3
+        y = coeffs[4] + coeffs[5] * i + coeffs[6] * i ** 2 + coeffs[7] * i ** 3
+        dx = coeffs[1] + 2 * coeffs[2] * i + 3 * coeffs[3] * i ** 2
+        dy = coeffs[5] + 2 * coeffs[6] * i + 3 * coeffs[7] * i ** 2
+        ddx = 2 * coeffs[2] + 6 * coeffs[3] * i
+        ddy = 2 * coeffs[6] + 6 * coeffs[7] * i
+        v = (dx ** 2 + dy ** 2) ** .5
+        th = math.atan2(dy, dx)
+        traj[count, 0] = x
+        traj[count, 1] = y
+        traj[count, 2] = th
+        traj[count, 3] = dx
+        traj[count, 4] = dy
+        traj[count, 5] = ddx
+        traj[count, 6] = ddy
+        count += 1
 
     ########## Code ends here ##########
 
@@ -68,6 +98,16 @@ def compute_controls(traj: np.ndarray) -> T.Tuple[np.ndarray, np.ndarray]:
         om (np.array shape [N]) om at each point of traj
     """
     ########## Code starts here ##########
+    V = np.zeros(traj.shape[0])
+    om = np.zeros(traj.shape[0])
+
+    for i in range(traj.shape[0]):
+        V[i] = (traj[i, 3] ** 2 + traj[i, 4] ** 2) ** .5
+        j = np.array([[np.cos(traj[i, 2]), -V[i]*np.sin(traj[i, 2])], [np.sin(traj[i, 2]), V[i]*np.cos(traj[i, 2])]])
+        u = np.array([[traj[i,5]], [traj[i,6]]])
+        sol = np.linalg.solve(j,u)
+
+        om[i] = sol[1]
 
     ########## Code ends here ##########
 
